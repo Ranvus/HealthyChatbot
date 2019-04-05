@@ -3,7 +3,7 @@ from telebot import types
 import sqlite3
 
 
-bot = telebot.TeleBot("")
+bot = telebot.TeleBot("868448262:AAEyTx0GKka-N2u7Ptb1zPis5S8aZJk9514")
 
 
 @bot.message_handler(commands=['start'])
