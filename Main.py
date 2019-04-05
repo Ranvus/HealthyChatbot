@@ -46,7 +46,7 @@ def get_user_request_spec(message):
 
 
 def get_user_request_inf(message, spec):
-    bot.send_message(message.chat.id, "Вы успешно отправили вашу заявку")
+    bot.send_message(message.chat.id, "Вы успешно отправили вашу заявку, чтобы удалить заявку напишите /delete")
     col = (message.chat.id, spec, message.text, 0, message.from_user.username)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -102,6 +102,16 @@ def inline(c):
                      ", он свяжется с вами в ближайшее время")
     conn.commit()
     conn.close()
+
+
+@bot.message_handler(commands=['delete'])
+def delete(message):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM applications WHERE user_name = %s " % str(message.chat.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, "Вы отменили заявку на консультацию.\nИспользуйте команду /start для записи на приём ")
 
 
 if __name__ == "__main__":
