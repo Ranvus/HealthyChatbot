@@ -3,8 +3,10 @@ from telebot import types
 import sqlite3
 
 
-bot = telebot.TeleBot("868448262:AAEyTx0GKka-N2u7Ptb1zPis5S8aZJk9514")
-
+bot = telebot.TeleBot("802743542:AAHQLFD8skJIWb_kMYZg3ZaoxknSUbMYyu4")
+# 0 - на рассмотрении
+# 1 - заказ взят
+# 2 - заказ закрыт
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -45,10 +47,10 @@ def get_user_request_spec(message):
 
 def get_user_request_inf(message, spec):
     bot.send_message(message.chat.id, "Вы успешно отправили вашу заявку")
-    col = (message.chat.id, spec, message.text)
+    col = (message.chat.id, spec, message.text, 0, message.from_user.username)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO applications (user_name, doctor_spec, short_inf) VALUES (?,?,?)", col)
+    cursor.execute("INSERT INTO applications (user_name, doctor_spec, short_inf, status, user_login) VALUES (?,?,?,?,?)", col)
     conn.commit()
     conn.close
 
@@ -59,11 +61,47 @@ def work(message):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM applications")
     rows = cursor.fetchall()
-    for i in rows:
-        bot.send_message(message.chat.id, "Запрос №" + str(i[0]) + "\n" + "Нужен специалист: " + i[2] +
-                         "\n" + "Клиент с номером: " + i[1] + "\n" + "Краткое описание проблемы: " + i[3])
+
+    cursor.execute("SELECT status FROM applications")
+    list = cursor.fetchall()
+    conn.close()
+
+    if any(0 in s for s in list):
+
+        for i in rows:
+            if i[4] == 0:
+                keyboard = types.InlineKeyboardMarkup()
+                callback_button = types.InlineKeyboardButton(text="Взять заказ", callback_data=str(i[0]))
+                keyboard.add(callback_button)
+
+                bot.send_message(message.chat.id, "Запрос №" + str(i[0]) + "\n" + "Нужен специалист: " + i[2] +
+                             "\n" + "Клиент с номером: " + i[1] + "\n" + "Краткое описание проблемы: " + i[3],
+                             reply_markup=keyboard)
+
+    else:
+        bot.send_message(message.chat.id, "Пока что запросов нет")
+
+
+@bot.callback_query_handler(func=lambda c:True)
+def inline(c):
+    bot.send_message(c.message.chat.id, "Как врачу: \nПоздравляем, вы взяли заказ №" + str(c.data))
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE applications SET status = '%s'  WHERE app_id = '%s'" % (1, int(c.data)))
+    cursor.execute("SELECT user_name FROM applications WHERE app_id = %s" % int(c.data))
+    rows = cursor.fetchall()
+    user_id = rows[0][0]
+
+    cursor.execute("SELECT user_login FROM applications WHERE app_id = %s" % int(c.data))
+    rows = cursor.fetchall()
+    user_login = rows[0][0]
+    bot.send_message(c.message.chat.id, "Как врачу: \nПожалуйста свяжитесь со своими клиентом @" + user_login)
+
+    bot.send_message(user_id, "Как пользователю: \nВашу заявку принял специалист номер " + str(c.message.chat.id) +
+                     ", он свяжется с вами в ближайшее время")
     conn.commit()
-    conn.close
+    conn.close()
 
 
 if __name__ == "__main__":
